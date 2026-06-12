@@ -121,11 +121,3 @@ pytest
 - High-frequency crypto data can be very large. Start with short windows or one day, then scale carefully.
 - Forecasting metrics are placeholders until the pipeline is run on real data. Do not report performance numbers that were not generated out of sample.
 
-## Resume Bullet Suggestions
-
-Use these only after running the full pipeline and replacing bracketed placeholders with real results:
-
-- Built a reproducible Python research pipeline for Binance high-frequency crypto trades, inferring signed order flow and estimating bivariate Hawkes excitation between buy and sell arrivals.
-- Validated event-time model fit using Ogata time-rescaling diagnostics and compared Hawkes residuals against homogeneous Poisson baselines with KS tests and QQ plots.
-- Evaluated whether Hawkes-implied intensity features improved chronological short-horizon realized-volatility forecasts over lagged-volatility and trade-intensity baselines.
-- Analyzed branching matrices and spectral radii across [N] symbol-day windows to quantify endogenous clustering and regime variation in order-flow excitation.
