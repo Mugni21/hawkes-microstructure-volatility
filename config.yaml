@@ -1,0 +1,17 @@
+data:
+  symbols: ["BTCUSDT", "ETHUSDT"]
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  timezone: "UTC"
+  interval_seconds: 10
+
+hawkes:
+  max_events_per_side: 5000
+  shared_beta: true
+  optimizer_maxiter: 500
+  stability_penalty: 1000000.0
+
+forecasting:
+  horizons_seconds: [10, 30, 60, 300]
+  train_fraction: 0.7
+  rolling_window_seconds: 300
