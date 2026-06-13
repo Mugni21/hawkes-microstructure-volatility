@@ -9,8 +9,8 @@ hawkes:
   fit_window:
     start_hour: 5
     duration_minutes: 30
-  max_events_per_side: 1500
-  cap_mode: uniform
+  max_events_per_side: null
+  cap_mode: none
   shared_beta: true
   optimizer_maxiter: 75
   stability_penalty: 100000.0
