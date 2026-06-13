@@ -6,10 +6,10 @@ data:
   interval_seconds: 10
 
 hawkes:
-  max_events_per_side: 5000
+  max_events_per_side: 1000
   shared_beta: true
-  optimizer_maxiter: 500
-  stability_penalty: 1000000.0
+  optimizer_maxiter: 100
+  stability_penalty: 100000.0
 
 forecasting:
   horizons_seconds: [10, 30, 60, 300]

@@ -13,3 +13,6 @@ reports/figures/*.pdf
 !data/processed/.gitkeep
 !data/external/.gitkeep
 !reports/figures/.gitkeep
+
+reports/*.json
+reports/*.csv

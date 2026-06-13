@@ -6,6 +6,19 @@ or ingest local files:
     python notebooks/01_build_event_data.py --input data/raw/BTCUSDT-aggTrades-2024-01-02.zip --symbol BTCUSDT
 """
 
+#Quick explanation of the dataset: 
+
+# Binance aggTrades dataset:
+# Each row is an aggregate executed trade on Binance Spot for a pair like BTCUSDT,
+# where BTC is the base asset and USDT is the quote asset. The row records execution
+# price, quantity, timestamp, and whether the buyer was the passive maker.
+# Aggregate trades can combine multiple underlying fills from the same taker order
+# at the same price/time, tracked by first_trade_id and last_trade_id.
+# We infer aggressor side from buyer_maker:
+# buyer_maker=True  -> seller-initiated trade;
+# buyer_maker=False -> buyer-initiated trade.
+
+
 from __future__ import annotations
 
 import argparse
