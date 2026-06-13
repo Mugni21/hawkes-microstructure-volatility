@@ -55,7 +55,9 @@ def matrix_heatmap(matrix: np.ndarray, title: str, ax=None, labels=("buy", "sell
     ax.set_title(title)
     for i in range(matrix.shape[0]):
         for j in range(matrix.shape[1]):
-            ax.text(j, i, f"{matrix[i, j]:.3g}", ha="center", va="center", color="white")
+            ax.text(
+                j, i, f"{matrix[i, j]:.3g}", ha="center", va="center", color="white"
+            )
     plt.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     return ax
 
@@ -73,15 +75,23 @@ def branching_matrix_heatmap(branching: np.ndarray, ax=None):
 def spectral_radius_over_windows(results: pd.DataFrame, ax=None):
     """Plot spectral radius across days or rolling windows."""
     ax = ax or plt.subplots()[1]
-    x = results["window_start"] if "window_start" in results else np.arange(len(results))
+    x = (
+        results["window_start"]
+        if "window_start" in results
+        else np.arange(len(results))
+    )
     ax.plot(x, results["spectral_radius"], marker="o")
-    ax.axhline(1.0, color="red", linestyle="--", linewidth=1, label="stability boundary")
+    ax.axhline(
+        1.0, color="red", linestyle="--", linewidth=1, label="stability boundary"
+    )
     ax.set_ylabel("Spectral radius")
     ax.legend()
     return ax
 
 
-def qq_plot_exp(residuals: np.ndarray, ax=None, title: str = "Time-rescaled residual QQ plot"):
+def qq_plot_exp(
+    residuals: np.ndarray, ax=None, title: str = "Time-rescaled residual QQ plot"
+):
     """Plot residual quantiles against Exp(1) quantiles."""
     ax = ax or plt.subplots()[1]
     clean = np.sort(np.asarray(residuals, dtype=float))

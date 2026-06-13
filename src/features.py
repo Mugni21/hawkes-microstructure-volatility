@@ -18,11 +18,15 @@ def buy_sell_event_times(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
 def add_mid_price_proxy(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     """Add a mid-price proxy from trade prices when quote data is unavailable."""
     out = df.copy()
-    out["mid_price_proxy"] = out["price"].astype(float).rolling(window, min_periods=1).median()
+    out["mid_price_proxy"] = (
+        out["price"].astype(float).rolling(window, min_periods=1).median()
+    )
     return out
 
 
-def add_log_returns(df: pd.DataFrame, price_col: str = "mid_price_proxy") -> pd.DataFrame:
+def add_log_returns(
+    df: pd.DataFrame, price_col: str = "mid_price_proxy"
+) -> pd.DataFrame:
     """Add log price and one-trade log return columns."""
     out = df.copy()
     if price_col not in out:
@@ -45,15 +49,27 @@ def interval_features(df: pd.DataFrame, interval_seconds: int = 10) -> pd.DataFr
     ).astype(float)
 
     grouped = work.groupby("interval_start", observed=True)
-    buy_counts = work[work["aggressor_side"] == "buy"].groupby("interval_start", observed=True).size()
-    sell_counts = work[work["aggressor_side"] == "sell"].groupby("interval_start", observed=True).size()
+    buy_counts = (
+        work[work["aggressor_side"] == "buy"]
+        .groupby("interval_start", observed=True)
+        .size()
+    )
+    sell_counts = (
+        work[work["aggressor_side"] == "sell"]
+        .groupby("interval_start", observed=True)
+        .size()
+    )
 
     grid = pd.DataFrame({"interval_start": labels})
-    grid["trade_count"] = grid["interval_start"].map(grouped.size()).fillna(0).astype(int)
+    grid["trade_count"] = (
+        grid["interval_start"].map(grouped.size()).fillna(0).astype(int)
+    )
     grid["buy_count"] = grid["interval_start"].map(buy_counts).fillna(0).astype(int)
     grid["sell_count"] = grid["interval_start"].map(sell_counts).fillna(0).astype(int)
     grid["signed_order_flow"] = grid["buy_count"] - grid["sell_count"]
-    grid["order_flow_imbalance"] = grid["signed_order_flow"] / grid["trade_count"].replace(0, np.nan)
+    grid["order_flow_imbalance"] = grid["signed_order_flow"] / grid[
+        "trade_count"
+    ].replace(0, np.nan)
     grid["order_flow_imbalance"] = grid["order_flow_imbalance"].fillna(0.0)
     last_price = grouped["mid_price_proxy"].last()
     grid["mid_price_proxy"] = grid["interval_start"].map(last_price).ffill().bfill()
@@ -72,8 +88,12 @@ def add_realized_volatility(
     ret2 = out["log_return"].pow(2)
     for horizon in horizons:
         steps = max(1, int(round(horizon / interval_seconds)))
-        out[f"rolling_rv_{horizon}s"] = np.sqrt(ret2.rolling(steps, min_periods=1).sum())
-        future_sum = ret2.shift(-1).rolling(steps, min_periods=1).sum().shift(-(steps - 1))
+        out[f"rolling_rv_{horizon}s"] = np.sqrt(
+            ret2.rolling(steps, min_periods=1).sum()
+        )
+        future_sum = (
+            ret2.shift(-1).rolling(steps, min_periods=1).sum().shift(-(steps - 1))
+        )
         out[f"future_rv_{horizon}s"] = np.sqrt(future_sum)
     return out
 
@@ -87,7 +107,9 @@ def add_rolling_intensity(
     out = intervals.copy()
     steps = max(1, int(round(window_seconds / interval_seconds)))
     out["rolling_trade_count"] = out["trade_count"].rolling(steps, min_periods=1).sum()
-    out["rolling_trade_intensity"] = out["rolling_trade_count"] / (steps * interval_seconds)
+    out["rolling_trade_intensity"] = out["rolling_trade_count"] / (
+        steps * interval_seconds
+    )
     return out
 
 
@@ -111,8 +133,12 @@ def build_feature_table(
 ) -> pd.DataFrame:
     """Build a fixed-interval modeling table from cleaned trades."""
     table = interval_features(df, interval_seconds=interval_seconds)
-    table = add_realized_volatility(table, interval_seconds=interval_seconds, horizons=horizons)
-    table = add_rolling_intensity(table, interval_seconds=interval_seconds, window_seconds=rolling_window_seconds)
+    table = add_realized_volatility(
+        table, interval_seconds=interval_seconds, horizons=horizons
+    )
+    table = add_rolling_intensity(
+        table, interval_seconds=interval_seconds, window_seconds=rolling_window_seconds
+    )
     for horizon in horizons:
         table = add_volatility_regime_labels(table, target_col=f"future_rv_{horizon}s")
     return table

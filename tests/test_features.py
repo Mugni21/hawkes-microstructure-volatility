@@ -21,7 +21,9 @@ def test_buy_sell_event_times():
 
 
 def test_realized_volatility_calculation():
-    table = build_feature_table(sample_clean_trades(), interval_seconds=10, horizons=(10, 20))
+    table = build_feature_table(
+        sample_clean_trades(), interval_seconds=10, horizons=(10, 20)
+    )
     assert "future_rv_10s" in table
     assert "rolling_trade_intensity" in table
     assert np.isfinite(table["future_rv_10s"].dropna()).all()

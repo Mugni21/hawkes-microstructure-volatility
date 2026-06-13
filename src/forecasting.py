@@ -30,7 +30,9 @@ def add_hawkes_intensity_features(
     return out
 
 
-def chronological_split(df: pd.DataFrame, train_fraction: float = 0.7) -> tuple[pd.DataFrame, pd.DataFrame]:
+def chronological_split(
+    df: pd.DataFrame, train_fraction: float = 0.7
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split rows in chronological order."""
     if not 0 < train_fraction < 1:
         raise ValueError("train_fraction must be between 0 and 1")
@@ -43,7 +45,11 @@ def regression_feature_sets(horizon: int) -> dict[str, list[str]]:
     lagged_rv = f"rolling_rv_{horizon}s"
     return {
         "lagged_rv": [lagged_rv],
-        "poisson_intensity": [lagged_rv, "rolling_trade_intensity", "rolling_trade_count"],
+        "poisson_intensity": [
+            lagged_rv,
+            "rolling_trade_intensity",
+            "rolling_trade_count",
+        ],
         "hawkes_intensity": [
             lagged_rv,
             "rolling_trade_intensity",
@@ -100,20 +106,31 @@ def run_classification_experiment(
     table: pd.DataFrame,
     horizon: int = 60,
     train_fraction: float = 0.7,
+    high_vol_quantile: float = 0.9,
 ) -> tuple[pd.DataFrame, dict[str, object]]:
-    """Fit chronological high-volatility regime classifiers."""
+    """Fit chronological high-volatility classifiers without label leakage.
+
+    The high-volatility threshold is estimated from the training split only and
+    then applied to the test split.
+    """
+    rv_target = f"future_rv_{horizon}s"
     target = f"high_vol_future_rv_{horizon}s"
-    if target not in table:
-        raise ValueError(f"Missing classification target {target}")
-    data = table.dropna(subset=[target]).copy()
+    if rv_target not in table:
+        raise ValueError(f"Missing classification source target {rv_target}")
+    data = table.dropna(subset=[rv_target]).copy()
     train, test = chronological_split(data, train_fraction=train_fraction)
+    threshold = train[rv_target].quantile(high_vol_quantile)
+    train[target] = (train[rv_target] >= threshold).astype(int)
+    test[target] = (test[rv_target] >= threshold).astype(int)
     rows = []
     models: dict[str, object] = {}
     for name, feature_cols in regression_feature_sets(horizon).items():
         cols = _available_features(data, feature_cols)
         if not cols or train[target].nunique() < 2 or test[target].nunique() < 2:
             continue
-        model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000, class_weight="balanced"))
+        model = make_pipeline(
+            StandardScaler(), LogisticRegression(max_iter=1000, class_weight="balanced")
+        )
         model.fit(train[cols], train[target])
         prob = model.predict_proba(test[cols])[:, 1]
         pred = (prob >= 0.5).astype(int)

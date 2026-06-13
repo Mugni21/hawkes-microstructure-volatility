@@ -25,7 +25,14 @@ def _integrated_hawkes_interval(
         if relevant.size:
             lower = np.maximum(start, relevant)
             value += float(
-                np.sum(alpha[target, j] / beta[target, j] * (np.exp(-beta[target, j] * (lower - relevant)) - np.exp(-beta[target, j] * (end - relevant))))
+                np.sum(
+                    alpha[target, j]
+                    / beta[target, j]
+                    * (
+                        np.exp(-beta[target, j] * (lower - relevant))
+                        - np.exp(-beta[target, j] * (end - relevant))
+                    )
+                )
             )
     return value
 
@@ -45,12 +52,18 @@ def time_rescale_hawkes(
     residuals = []
     previous = float(start_time)
     for event_time in target:
-        residuals.append(_integrated_hawkes_interval(target_index, previous, float(event_time), events, mu, alpha, beta))
+        residuals.append(
+            _integrated_hawkes_interval(
+                target_index, previous, float(event_time), events, mu, alpha, beta
+            )
+        )
         previous = float(event_time)
     return np.asarray(residuals, dtype=float)
 
 
-def time_rescale_poisson(target_events: np.ndarray, rate: float, start_time: float = 0.0) -> np.ndarray:
+def time_rescale_poisson(
+    target_events: np.ndarray, rate: float, start_time: float = 0.0
+) -> np.ndarray:
     """Return Exp(1) residual inter-arrivals for a homogeneous Poisson process."""
     target = np.sort(np.asarray(target_events, dtype=float))
     if rate < 0:
@@ -70,7 +83,11 @@ def ks_exp_test(residuals: np.ndarray) -> dict:
     if clean.size == 0:
         return {"ks_statistic": np.nan, "p_value": np.nan, "n": 0}
     stat, p_value = stats.kstest(clean, "expon", args=(0, 1))
-    return {"ks_statistic": float(stat), "p_value": float(p_value), "n": int(clean.size)}
+    return {
+        "ks_statistic": float(stat),
+        "p_value": float(p_value),
+        "n": int(clean.size),
+    }
 
 
 def residual_acf(residuals: np.ndarray, max_lag: int = 10) -> pd.Series:
@@ -90,7 +107,9 @@ def residual_acf(residuals: np.ndarray, max_lag: int = 10) -> pd.Series:
     return pd.Series(out, name="acf")
 
 
-def diagnostic_summary_table(named_residuals: dict[str, np.ndarray], max_lag: int = 5) -> pd.DataFrame:
+def diagnostic_summary_table(
+    named_residuals: dict[str, np.ndarray], max_lag: int = 5
+) -> pd.DataFrame:
     """Summarize KS and residual autocorrelation diagnostics."""
     rows = []
     for name, residuals in named_residuals.items():

@@ -54,7 +54,9 @@ def download_binance_aggtrades(
         response = requests.get(url, timeout=timeout)
         response.raise_for_status()
     except requests.RequestException as exc:
-        raise RuntimeError(f"Could not download {url}. Download it manually into {raw_path}.") from exc
+        raise RuntimeError(
+            f"Could not download {url}. Download it manually into {raw_path}."
+        ) from exc
 
     out.write_bytes(response.content)
     return out
@@ -99,7 +101,14 @@ def clean_aggtrades(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Missing required aggTrade columns: {sorted(missing)}")
 
     out = df.copy()
-    numeric_cols = ["agg_trade_id", "price", "quantity", "first_trade_id", "last_trade_id", "timestamp"]
+    numeric_cols = [
+        "agg_trade_id",
+        "price",
+        "quantity",
+        "first_trade_id",
+        "last_trade_id",
+        "timestamp",
+    ]
     for col in numeric_cols:
         out[col] = pd.to_numeric(out[col], errors="coerce")
     out = out.dropna(subset=["agg_trade_id", "price", "quantity", "timestamp"])
@@ -108,14 +117,18 @@ def clean_aggtrades(df: pd.DataFrame) -> pd.DataFrame:
     out["datetime"] = pd.to_datetime(out["timestamp"], unit="ms", utc=True)
     out["date"] = out["datetime"].dt.strftime("%Y-%m-%d")
     out["aggressor_side"] = infer_aggressor_side(out["buyer_maker"])
-    out = out.drop_duplicates(subset=["symbol", "agg_trade_id"] if "symbol" in out else ["agg_trade_id"])
+    out = out.drop_duplicates(
+        subset=["symbol", "agg_trade_id"] if "symbol" in out else ["agg_trade_id"]
+    )
     out = out.sort_values(["symbol", "datetime"] if "symbol" in out else ["datetime"])
     out["day_start"] = out["datetime"].dt.floor("D")
     out["event_time"] = (out["datetime"] - out["day_start"]).dt.total_seconds()
     return out.reset_index(drop=True)
 
 
-def load_and_clean_files(paths: Iterable[str | Path], symbols: Iterable[str] | None = None) -> pd.DataFrame:
+def load_and_clean_files(
+    paths: Iterable[str | Path], symbols: Iterable[str] | None = None
+) -> pd.DataFrame:
     """Load many raw aggTrade files and return one cleaned DataFrame."""
     path_list = list(paths)
     frames = []
@@ -171,3 +184,56 @@ def load_processed(path: str | Path) -> pd.DataFrame:
     if path.suffix == ".parquet":
         return pd.read_parquet(path)
     return pd.read_csv(path, parse_dates=["datetime", "day_start"])
+
+
+def filter_intraday_window(
+    df: pd.DataFrame,
+    start_hour: float = 0.0,
+    duration_minutes: float | None = None,
+    reset_event_time: bool = True,
+) -> pd.DataFrame:
+    """Filter cleaned trades to an intraday UTC window.
+
+    Parameters
+    ----------
+    df:
+        Cleaned trade data with ``event_time`` measured in seconds from UTC day
+        start.
+    start_hour:
+        Hour of the day at which the fitting/forecasting window starts. For
+        example, ``5`` means 05:00 UTC and ``13.5`` means 13:30 UTC.
+    duration_minutes:
+        Number of minutes to include after ``start_hour``. If ``None``, keep
+        observations through the end of the day.
+    reset_event_time:
+        If true, subtract the window start from ``event_time`` so model fitting
+        starts at zero.
+    """
+    if "event_time" not in df:
+        raise ValueError("DataFrame must contain event_time")
+    if start_hour < 0 or start_hour >= 24:
+        raise ValueError("start_hour must be in [0, 24)")
+    if duration_minutes is not None and duration_minutes <= 0:
+        raise ValueError("duration_minutes must be positive when provided")
+
+    start_seconds = float(start_hour) * 3600.0
+    end_seconds = 24.0 * 3600.0
+    if duration_minutes is not None:
+        end_seconds = min(end_seconds, start_seconds + float(duration_minutes) * 60.0)
+
+    out = df[
+        (df["event_time"] >= start_seconds) & (df["event_time"] < end_seconds)
+    ].copy()
+    if reset_event_time and not out.empty:
+        out["event_time"] = out["event_time"] - start_seconds
+        if "day_start" in out:
+            out["window_start"] = out["day_start"] + pd.to_timedelta(
+                start_seconds, unit="s"
+            )
+        out["window_start_hour"] = float(start_hour)
+        out["window_duration_minutes"] = (
+            float(duration_minutes)
+            if duration_minutes is not None
+            else (end_seconds - start_seconds) / 60.0
+        )
+    return out.reset_index(drop=True)

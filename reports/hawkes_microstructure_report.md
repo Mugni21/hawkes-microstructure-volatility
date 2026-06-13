@@ -52,7 +52,7 @@ A stable stationary Hawkes process requires \(\rho(G) < 1\).
 
 ## 5. Estimation
 
-The MVP implementation estimates parameters by maximum likelihood with positivity constraints. The default specification uses a shared decay parameter \(\beta\) for all excitation channels to improve numerical stability on short windows:
+The MVP implementation estimates parameters by maximum likelihood with positivity constraints. Because daily crypto aggregate-trade files can be very large, estimation is performed on explicit intraday windows such as 05:00-08:00 UTC rather than by silently truncating the event stream. The default specification uses a shared decay parameter \(\beta\) for all excitation channels to improve numerical stability on short windows:
 
 \[
 \beta_{ij} = \beta.
@@ -104,6 +104,8 @@ The chronological forecasting setup compares:
 3. Hawkes intensity features plus baselines.
 
 Targets include future realized volatility at 10s, 30s, 60s, and 300s, plus top-decile high-volatility regime labels.
+
+To avoid data snooping, Hawkes parameters used in forecasting are estimated only on the training portion of the selected window. High-volatility classification thresholds are also estimated on the training split and then applied out of sample.
 
 ## 8. Results
 

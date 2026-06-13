@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import minimize
 
+VALID_CAP_MODES = {"none", "first", "uniform"}
+
 
 @dataclass
 class HawkesFitResult:
@@ -45,7 +47,9 @@ class HawkesFitResult:
         }
 
 
-def _prepare_events(events: list[np.ndarray], max_events_per_side: int | None = None) -> list[np.ndarray]:
+def _prepare_events(
+    events: list[np.ndarray], max_events_per_side: int | None = None
+) -> list[np.ndarray]:
     prepared = []
     for stream in events:
         arr = np.sort(np.asarray(stream, dtype=float))
@@ -58,6 +62,40 @@ def _prepare_events(events: list[np.ndarray], max_events_per_side: int | None = 
     return prepared
 
 
+def cap_event_stream(
+    stream: np.ndarray, max_events: int | None, mode: str = "uniform"
+) -> np.ndarray:
+    """Cap one sorted event stream using the requested sampling mode."""
+    arr = np.sort(np.asarray(stream, dtype=float))
+    arr = arr[np.isfinite(arr)]
+    if mode not in VALID_CAP_MODES:
+        raise ValueError(f"cap_mode must be one of {sorted(VALID_CAP_MODES)}")
+    if mode == "none" or max_events is None:
+        return arr
+    if max_events <= 0:
+        raise ValueError("max_events must be positive when cap_mode is active")
+    if len(arr) <= max_events:
+        return arr
+    if mode == "first":
+        return arr[:max_events]
+
+    index = np.linspace(0, len(arr) - 1, num=max_events, dtype=int)
+    return arr[index]
+
+
+def cap_bivariate_events(
+    buy_events: np.ndarray,
+    sell_events: np.ndarray,
+    max_events_per_side: int | None,
+    mode: str = "uniform",
+) -> tuple[np.ndarray, np.ndarray]:
+    """Apply the same cap policy to buy and sell event streams."""
+    return (
+        cap_event_stream(buy_events, max_events_per_side, mode),
+        cap_event_stream(sell_events, max_events_per_side, mode),
+    )
+
+
 def branching_matrix(alpha: np.ndarray, beta: np.ndarray) -> np.ndarray:
     """Compute G_ij = alpha_ij / beta_ij."""
     return np.asarray(alpha, dtype=float) / np.asarray(beta, dtype=float)
@@ -68,7 +106,9 @@ def spectral_radius(matrix: np.ndarray) -> float:
     return float(np.max(np.abs(np.linalg.eigvals(matrix))))
 
 
-def _unpack_params(theta: np.ndarray, shared_beta: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _unpack_params(
+    theta: np.ndarray, shared_beta: bool
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     params = np.exp(theta)
     mu = params[:2]
     alpha = params[2:6].reshape(2, 2)
@@ -79,7 +119,13 @@ def _unpack_params(theta: np.ndarray, shared_beta: bool) -> tuple[np.ndarray, np
     return mu, alpha, beta
 
 
-def hawkes_log_likelihood(events: list[np.ndarray], horizon: float, mu: np.ndarray, alpha: np.ndarray, beta: np.ndarray) -> float:
+def hawkes_log_likelihood(
+    events: list[np.ndarray],
+    horizon: float,
+    mu: np.ndarray,
+    alpha: np.ndarray,
+    beta: np.ndarray,
+) -> float:
     """Evaluate the bivariate Hawkes log-likelihood."""
     streams = _prepare_events(events)
     log_sum = 0.0
@@ -89,7 +135,9 @@ def hawkes_log_likelihood(events: list[np.ndarray], horizon: float, mu: np.ndarr
             for j, source_events in enumerate(streams):
                 past = source_events[source_events < t]
                 if past.size:
-                    intensity += float(np.sum(alpha[i, j] * np.exp(-beta[i, j] * (t - past))))
+                    intensity += float(
+                        np.sum(alpha[i, j] * np.exp(-beta[i, j] * (t - past)))
+                    )
             if intensity <= 0 or not np.isfinite(intensity):
                 return -np.inf
             log_sum += np.log(intensity)
@@ -99,7 +147,11 @@ def hawkes_log_likelihood(events: list[np.ndarray], horizon: float, mu: np.ndarr
         for j, source_events in enumerate(streams):
             if source_events.size:
                 compensator += float(
-                    np.sum(alpha[i, j] / beta[i, j] * (1.0 - np.exp(-beta[i, j] * (horizon - source_events))))
+                    np.sum(
+                        alpha[i, j]
+                        / beta[i, j]
+                        * (1.0 - np.exp(-beta[i, j] * (horizon - source_events)))
+                    )
                 )
     return log_sum - compensator
 
@@ -109,7 +161,7 @@ def fit_hawkes_bivariate(
     sell_events: np.ndarray,
     horizon: float | None = None,
     shared_beta: bool = True,
-    max_events_per_side: int | None = 5000,
+    max_events_per_side: int | None = None,
     optimizer_maxiter: int = 500,
     stability_penalty: float = 1_000_000.0,
 ) -> HawkesFitResult:
@@ -119,7 +171,9 @@ def fit_hawkes_bivariate(
     rolling-window fits. It keeps the optimization stable while preserving the
     buy/sell excitation matrix needed for the research questions.
     """
-    events = _prepare_events([buy_events, sell_events], max_events_per_side=max_events_per_side)
+    events = _prepare_events(
+        [buy_events, sell_events], max_events_per_side=max_events_per_side
+    )
     if horizon is None:
         max_event = max((arr.max() for arr in events if len(arr)), default=0.0)
         horizon = max(1.0, float(max_event))
@@ -148,7 +202,9 @@ def fit_hawkes_bivariate(
         penalty = stability_penalty * max(0.0, rho - 0.999) ** 2
         return -ll + penalty
 
-    result = minimize(objective, x0, method="L-BFGS-B", options={"maxiter": optimizer_maxiter})
+    result = minimize(
+        objective, x0, method="L-BFGS-B", options={"maxiter": optimizer_maxiter}
+    )
     mu, alpha, beta = _unpack_params(result.x, shared_beta)
     ll = hawkes_log_likelihood(events, float(horizon), mu, alpha, beta)
     g = branching_matrix(alpha, beta)
@@ -172,14 +228,18 @@ def fit_hawkes_bivariate(
     )
 
 
-def fit_poisson_baseline(buy_events: np.ndarray, sell_events: np.ndarray, horizon: float | None = None) -> dict:
+def fit_poisson_baseline(
+    buy_events: np.ndarray, sell_events: np.ndarray, horizon: float | None = None
+) -> dict:
     """Fit independent homogeneous Poisson rates for buy and sell arrivals."""
     events = _prepare_events([buy_events, sell_events])
     if horizon is None:
         horizon = max(1.0, max((arr.max() for arr in events if len(arr)), default=0.0))
     counts = np.array([len(events[0]), len(events[1])], dtype=float)
     rates = counts / float(horizon)
-    ll = float(np.sum(counts * np.log(np.maximum(rates, 1e-12)) - rates * float(horizon)))
+    ll = float(
+        np.sum(counts * np.log(np.maximum(rates, 1e-12)) - rates * float(horizon))
+    )
     k = 2
     n_events = int(counts.sum())
     return {
@@ -209,6 +269,8 @@ def hawkes_intensity_at_times(
             for j, source_events in enumerate(streams):
                 past = source_events[source_events < t]
                 if past.size:
-                    value += float(np.sum(alpha[i, j] * np.exp(-beta[i, j] * (t - past))))
+                    value += float(
+                        np.sum(alpha[i, j] * np.exp(-beta[i, j] * (t - past)))
+                    )
             intensities[n, i] = value
     return intensities

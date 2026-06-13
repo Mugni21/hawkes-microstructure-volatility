@@ -38,7 +38,9 @@ lambda_i(t) = mu_i + sum_j sum_{t_k^j < t} alpha_ij exp(-beta_ij (t - t_k^j))
 
 The MVP estimator uses direct maximum likelihood with positivity constraints. By default it uses a shared exponential decay parameter `beta` across the 2x2 excitation matrix for stability and speed. The branching matrix is `G_ij = alpha_ij / beta_ij`, and stationarity is assessed using the spectral radius `rho(G)`.
 
-Forecasting uses chronological train/test splits. Baselines include lagged realized volatility and rolling trade intensity. The Hawkes model adds buy, sell, total, and imbalance intensity features.
+Because a single crypto symbol-day can contain hundreds of thousands or millions of trades, model fitting is controlled by an explicit intraday time window rather than by silently truncating event counts. In `config.yaml`, `hawkes.fit_window.start_hour: 5` and `duration_minutes: 120` means fit on trades from 05:00 to 07:00 UTC. CLI flags can override this.
+
+Forecasting uses chronological train/test splits. Baselines include lagged realized volatility and rolling trade intensity. The Hawkes model adds buy, sell, total, and imbalance intensity features. To avoid data snooping, the forecasting script estimates Hawkes parameters only on the training portion of the selected intraday window and applies train-estimated high-volatility thresholds to the test split.
 
 ## Repository Structure
 
@@ -87,6 +89,12 @@ Fit Hawkes and Poisson models:
 python notebooks/02_fit_hawkes_order_flow.py --processed data/processed/BTCUSDT_2024-01-02.parquet
 ```
 
+Fit a specific UTC intraday window:
+
+```powershell
+python notebooks/02_fit_hawkes_order_flow.py --processed data/processed/BTCUSDT_2024-01-02.parquet --start-hour 5 --duration-minutes 180
+```
+
 Run time-rescaling diagnostics:
 
 ```powershell
@@ -96,7 +104,7 @@ python notebooks/03_time_rescaling_gof.py --processed data/processed/BTCUSDT_202
 Run the forecasting experiment:
 
 ```powershell
-python notebooks/04_forecast_volatility_liquidity.py --processed data/processed/BTCUSDT_2024-01-02.parquet --fit reports/hawkes_fit.json --horizon 60
+python notebooks/04_forecast_volatility_liquidity.py --processed data/processed/BTCUSDT_2024-01-02.parquet --start-hour 5 --duration-minutes 180 --horizon 60
 ```
 
 Run tests:
@@ -118,6 +126,6 @@ pytest
 - Aggregate trades are not full order-book data. This project does not compute quote imbalance, spread, depth, or true mid-price.
 - The mid-price is only a trade-price proxy, used because quote data is unavailable.
 - The default Hawkes estimator uses a shared decay parameter for a stable MVP. For larger research runs, compare against separate decay parameters and rolling-window estimation.
-- High-frequency crypto data can be very large. Start with short windows or one day, then scale carefully.
+- High-frequency crypto data can be very large. Start with one- to three-hour windows, then scale carefully.
 - Forecasting metrics are placeholders until the pipeline is run on real data. Do not report performance numbers that were not generated out of sample.
 
