@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import yaml
 
 from src.data import filter_intraday_window, load_processed
@@ -24,28 +25,38 @@ from src.forecasting import add_hawkes_intensity_features
 from src.hawkes import hawkes_intensity_at_times
 
 
-def _window_settings(args: argparse.Namespace, config: dict) -> tuple[float, float]:
-    window = config.get("hawkes", {}).get("fit_window", {})
+def _load_fit_json(fit_path: Path) -> dict | None:
+    if not fit_path.exists():
+        return None
+    return json.loads(fit_path.read_text())
+
+
+def _window_settings(
+    args: argparse.Namespace, config: dict, fit: dict | None = None
+) -> tuple[float, float]:
+    fit_window = (fit or {}).get("window", {})
+    config_window = config.get("hawkes", {}).get("fit_window", {})
     start_hour = (
         args.start_hour
         if args.start_hour is not None
-        else window.get("start_hour", 0.0)
+        else fit_window.get("start_hour", config_window.get("start_hour", 0.0))
     )
     duration_minutes = (
         args.duration_minutes
         if args.duration_minutes is not None
-        else window.get("duration_minutes")
+        else fit_window.get("duration_minutes", config_window.get("duration_minutes"))
     )
     if duration_minutes is None:
-        raise ValueError("duration_minutes is required via CLI or config.yaml")
+        raise ValueError(
+            "duration_minutes is required via CLI, fit JSON window, or config.yaml"
+        )
     return float(start_hour), float(duration_minutes)
 
 
-def _add_hawkes_intensities_if_available(feature_table, trades, fit_path: Path):
-    if not fit_path.exists():
+def _add_hawkes_intensities_if_available(feature_table, trades, fit: dict | None):
+    if fit is None:
         return feature_table
 
-    fit = json.loads(fit_path.read_text())
     hawkes = fit.get("hawkes")
     if hawkes is None:
         return feature_table
@@ -111,6 +122,13 @@ def _strategy_results(
     return rows, schedules
 
 
+def _build_schedule_output(execution_table, schedules) -> pd.DataFrame:
+    schedule_table = execution_table.copy()
+    for strategy, child_qty in schedules.items():
+        schedule_table[f"{strategy}_child_qty"] = child_qty
+    return schedule_table
+
+
 def _save_plots(
     execution_table, schedules, results, total_quantity: float, output_dir: Path
 ):
@@ -153,6 +171,7 @@ def main() -> None:
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--fit", default="reports/hawkes_fit.json")
     parser.add_argument("--output", default="reports/execution_results.csv")
+    parser.add_argument("--schedule-output", default="reports/execution_schedule.csv")
     parser.add_argument("--figures-dir", default="reports/figures")
     parser.add_argument("--total-quantity", type=float, default=1.0)
     parser.add_argument("--side", choices=["buy", "sell"], default="buy")
@@ -163,7 +182,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config = yaml.safe_load(Path(args.config).read_text())
-    start_hour, duration_minutes = _window_settings(args, config)
+    fit = _load_fit_json(Path(args.fit))
+    start_hour, duration_minutes = _window_settings(args, config, fit=fit)
     trades = filter_intraday_window(
         load_processed(args.processed),
         start_hour=start_hour,
@@ -179,9 +199,7 @@ def main() -> None:
         horizons=tuple(config["forecasting"]["horizons_seconds"]),
         rolling_window_seconds=config["forecasting"]["rolling_window_seconds"],
     )
-    feature_table = _add_hawkes_intensities_if_available(
-        feature_table, trades, Path(args.fit)
-    )
+    feature_table = _add_hawkes_intensities_if_available(feature_table, trades, fit)
     execution_table = build_execution_table(
         feature_table, total_quantity=args.total_quantity, side=args.side
     )
@@ -192,11 +210,12 @@ def main() -> None:
         strength=args.strength,
     )
 
-    import pandas as pd
-
     results = pd.DataFrame(rows)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(args.output, index=False)
+    schedule_output = _build_schedule_output(execution_table, schedules)
+    Path(args.schedule_output).parent.mkdir(parents=True, exist_ok=True)
+    schedule_output.to_csv(args.schedule_output, index=False)
     _save_plots(
         execution_table,
         schedules,

@@ -125,6 +125,8 @@ The execution module compares schedules for buying or selling a fixed parent qua
 
 For a buy parent order, the Hawkes-aware rule executes less when buy pressure is high and more when sell pressure is high. For a sell parent order, the rule executes less when sell pressure is high and more when buy pressure is high. Performance is summarized with average execution price and implementation shortfall relative to the arrival price.
 
+The simulator saves both strategy-level results and an interval-level child-order schedule. When a Hawkes fit JSON is supplied, the execution window is inferred from the fit metadata by default, keeping the Hawkes intensity window aligned with the execution simulation unless the user explicitly overrides the window through CLI arguments.
+
 This simulator is intentionally simplified. It does not include full limit-order-book depth, queue position, passive fill probabilities, latency, market impact, transaction fees, rebates, or exchange order constraints. It should be interpreted as execution research plumbing and a controlled comparison of schedule rules, not as a live trading or profitability claim.
 
 ## 9. Results

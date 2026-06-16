@@ -118,6 +118,8 @@ Run the execution simulation:
 python notebooks/05_execution_simulation.py --processed data/processed/BTCUSDT_2024-01-02.parquet --fit reports/hawkes_fit.json --total-quantity 1 --side buy
 ```
 
+When a Hawkes fit JSON is provided, the execution simulator uses the fit file's `window.start_hour` and `window.duration_minutes` by default so Hawkes intensities and execution schedules are evaluated on the same intraday window. CLI `--start-hour` and `--duration-minutes` values override the fit window when supplied.
+
 Run tests:
 
 ```powershell
@@ -131,6 +133,7 @@ pytest
 - Time-rescaling diagnostic table under `reports/time_rescaling_summary.csv`.
 - Forecast metrics under `reports/forecast_regression.csv` and `reports/forecast_classification.csv`.
 - Execution simulation metrics under `reports/execution_results.csv`.
+- Interval-level execution schedules under `reports/execution_schedule.csv`, including one child-quantity column per strategy.
 - Figures saved under `reports/figures/` when generated from plotting utilities.
 
 ## Caveats and Limitations
