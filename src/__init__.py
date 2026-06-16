@@ -5,6 +5,7 @@ __all__ = [
     "features",
     "hawkes",
     "diagnostics",
+    "execution",
     "forecasting",
     "plotting",
 ]

@@ -1,8 +1,8 @@
 # Order-Flow Excitation and Short-Horizon Volatility Forecasting with Multivariate Hawkes Processes
 
-This repository is a reproducible quantitative research project on high-frequency crypto trade arrivals. It uses Binance public aggregate trades for BTCUSDT and ETHUSDT, infers signed buyer-initiated and seller-initiated order flow, estimates bivariate Hawkes processes, evaluates goodness of fit with Ogata time-rescaling diagnostics, and tests whether Hawkes-implied intensity features improve short-horizon realized-volatility forecasts.
+This repository is a reproducible quantitative research project on high-frequency crypto trade arrivals. It uses Binance public aggregate trades for BTCUSDT and ETHUSDT, infers signed buyer-initiated and seller-initiated order flow, estimates bivariate Hawkes processes, evaluates goodness of fit with Ogata time-rescaling diagnostics, tests whether Hawkes-implied intensity features improve short-horizon realized-volatility forecasts, and includes a simplified execution-cost simulator for intraday parent-order schedules.
 
-This is not a trading bot and does not claim profitability. The focus is event-time modeling, endogenous clustering in order flow, and interpretable short-horizon volatility prediction.
+This is not a trading bot and does not claim profitability. The focus is event-time modeling, endogenous clustering in order flow, interpretable short-horizon volatility prediction, and reduced-form execution research.
 
 ## Research Questions
 
@@ -10,6 +10,7 @@ This is not a trading bot and does not claim profitability. The focus is event-t
 2. Do Hawkes branching ratios and excitation matrices change across volatility regimes?
 3. Do Hawkes-implied intensity features improve short-horizon realized-volatility forecasts versus simple baselines?
 4. Does the Hawkes model pass time-rescaling goodness-of-fit diagnostics better than a homogeneous Poisson baseline?
+5. Can simple execution schedules use order-flow pressure signals to change simulated implementation shortfall over an intraday window?
 
 ## Data
 
@@ -42,6 +43,8 @@ Because a single crypto symbol-day can contain hundreds of thousands or millions
 
 Forecasting uses chronological train/test splits. Baselines include lagged realized volatility and rolling trade intensity. The Hawkes model adds buy, sell, total, and imbalance intensity features. To avoid data snooping, the forecasting script estimates Hawkes parameters only on the training portion of the selected intraday window and applies train-estimated high-volatility thresholds to the test split.
 
+The execution simulator compares TWAP, volume participation, imbalance-aware, and Hawkes-aware schedules for buying or selling a fixed parent quantity. Hawkes intensities are used as reduced-form order-flow pressure signals: for a buy parent order, the simulator slows down when buy pressure is high and speeds up when sell pressure is high; sell orders use the symmetric logic.
+
 ## Repository Structure
 
 ```text
@@ -51,10 +54,12 @@ notebooks/01_build_event_data.py   download/ingest and clean trades
 notebooks/02_fit_hawkes_order_flow.py
 notebooks/03_time_rescaling_gof.py
 notebooks/04_forecast_volatility_liquidity.py
+notebooks/05_execution_simulation.py
 src/data.py                       data ingestion and event construction
 src/features.py                   fixed-interval features and RV targets
 src/hawkes.py                     Hawkes MLE and Poisson baseline
 src/diagnostics.py                time-rescaling diagnostics
+src/execution.py                  simplified execution-cost simulator
 src/forecasting.py                forecasting experiments
 src/plotting.py                   reusable figures
 reports/hawkes_microstructure_report.md
@@ -107,6 +112,12 @@ Run the forecasting experiment:
 python notebooks/04_forecast_volatility_liquidity.py --processed data/processed/BTCUSDT_2024-01-02.parquet --start-hour 5 --duration-minutes 180 --horizon 60
 ```
 
+Run the execution simulation:
+
+```powershell
+python notebooks/05_execution_simulation.py --processed data/processed/BTCUSDT_2024-01-02.parquet --fit reports/hawkes_fit.json --total-quantity 1 --side buy
+```
+
 Run tests:
 
 ```powershell
@@ -119,6 +130,7 @@ pytest
 - Hawkes and Poisson estimates under `reports/hawkes_fit.json`.
 - Time-rescaling diagnostic table under `reports/time_rescaling_summary.csv`.
 - Forecast metrics under `reports/forecast_regression.csv` and `reports/forecast_classification.csv`.
+- Execution simulation metrics under `reports/execution_results.csv`.
 - Figures saved under `reports/figures/` when generated from plotting utilities.
 
 ## Caveats and Limitations
@@ -128,4 +140,5 @@ pytest
 - The default Hawkes estimator uses a shared decay parameter for a stable MVP. For larger research runs, compare against separate decay parameters and rolling-window estimation.
 - High-frequency crypto data can be very large. Start with one- to three-hour windows, then scale carefully.
 - Forecasting metrics are placeholders until the pipeline is run on real data. Do not report performance numbers that were not generated out of sample.
-
+- The execution simulator is intentionally simplified. It does not model full limit-order-book depth, queue position, passive fill probability, market impact, latency, real transaction fees, rebates, or exchange constraints.
+- Hawkes-aware execution schedules use intensities as reduced-form order-flow pressure signals, not as proof of tradable alpha or profitability.

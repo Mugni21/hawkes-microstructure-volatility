@@ -76,6 +76,95 @@ def time_rescale_poisson(
     return np.asarray(residuals, dtype=float)
 
 
+def estimate_piecewise_rates(
+    event_times: np.ndarray,
+    horizon: float,
+    bin_seconds: float,
+    epsilon: float = 1e-9,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Estimate piecewise-constant Poisson rates over [0, horizon]."""
+    if horizon <= 0:
+        raise ValueError("horizon must be positive")
+    if bin_seconds <= 0:
+        raise ValueError("bin_seconds must be positive")
+    if epsilon < 0:
+        raise ValueError("epsilon must be nonnegative")
+
+    events = np.sort(np.asarray(event_times, dtype=float))
+    events = events[np.isfinite(events)]
+    events = events[(events >= 0.0) & (events <= horizon)]
+
+    bin_edges = np.arange(0.0, float(horizon), float(bin_seconds))
+    if bin_edges.size == 0 or bin_edges[0] != 0.0:
+        bin_edges = np.r_[0.0, bin_edges]
+    if bin_edges[-1] < horizon:
+        bin_edges = np.r_[bin_edges, float(horizon)]
+    elif bin_edges[-1] > horizon:
+        bin_edges[-1] = float(horizon)
+    if bin_edges.size < 2:
+        bin_edges = np.array([0.0, float(horizon)])
+
+    counts, _ = np.histogram(events, bins=bin_edges)
+    widths = np.diff(bin_edges)
+    rates = counts / widths
+    rates = np.maximum(rates.astype(float), float(epsilon))
+    return bin_edges.astype(float), rates
+
+
+def _integrate_piecewise_constant(
+    start: float,
+    end: float,
+    bin_edges: np.ndarray,
+    bin_rates: np.ndarray,
+) -> float:
+    if end <= start:
+        return 0.0
+    if start < bin_edges[0] or end > bin_edges[-1]:
+        raise ValueError("integration interval must lie within bin_edges")
+
+    total = 0.0
+    current = float(start)
+    while current < end:
+        bin_index = np.searchsorted(bin_edges, current, side="right") - 1
+        bin_index = min(max(bin_index, 0), len(bin_rates) - 1)
+        segment_end = min(float(end), float(bin_edges[bin_index + 1]))
+        total += float(bin_rates[bin_index]) * (segment_end - current)
+        current = segment_end
+    return total
+
+
+def time_rescale_piecewise_poisson(
+    event_times: np.ndarray,
+    bin_edges: np.ndarray,
+    bin_rates: np.ndarray,
+) -> np.ndarray:
+    """Return residuals under a piecewise-constant Poisson intensity."""
+    events = np.sort(np.asarray(event_times, dtype=float))
+    events = events[np.isfinite(events)]
+    edges = np.asarray(bin_edges, dtype=float)
+    rates = np.asarray(bin_rates, dtype=float)
+
+    if edges.ndim != 1 or rates.ndim != 1:
+        raise ValueError("bin_edges and bin_rates must be one-dimensional")
+    if len(edges) != len(rates) + 1:
+        raise ValueError("len(bin_edges) must equal len(bin_rates) + 1")
+    if np.any(np.diff(edges) <= 0):
+        raise ValueError("bin_edges must be strictly increasing")
+    if np.any(rates < 0):
+        raise ValueError("bin_rates must be nonnegative")
+    if events.size and (events[0] < edges[0] or events[-1] > edges[-1]):
+        raise ValueError("event_times must lie within bin_edges")
+
+    previous = float(edges[0])
+    residuals = []
+    for event_time in events:
+        residuals.append(
+            _integrate_piecewise_constant(previous, float(event_time), edges, rates)
+        )
+        previous = float(event_time)
+    return np.asarray(residuals, dtype=float)
+
+
 def ks_exp_test(residuals: np.ndarray) -> dict:
     """Run a one-sample KS test against Exp(1)."""
     clean = np.asarray(residuals, dtype=float)

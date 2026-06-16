@@ -18,7 +18,6 @@ from src.plotting import (
     interarrival_histogram,
 )
 
-
 PROCESSED = "data/processed/BTCUSDT_2024-01-02.parquet"
 FIT_JSON = "reports/hawkes_fit.json"
 FIGURE_DIR = Path("reports/figures")
@@ -67,7 +66,9 @@ def main() -> None:
     interarrival_histogram(buy, ax=ax, bins=80)
     ax.set_title("BTCUSDT buy-event interarrival times")
     fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_buy_interarrivals.png", dpi=150)
+    fig.savefig(
+        FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_buy_interarrivals.png", dpi=150
+    )
     plt.close(fig)
 
     # 4. Sell interarrival histogram
@@ -75,7 +76,9 @@ def main() -> None:
     interarrival_histogram(sell, ax=ax, bins=80)
     ax.set_title("BTCUSDT sell-event interarrival times")
     fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_sell_interarrivals.png", dpi=150)
+    fig.savefig(
+        FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_sell_interarrivals.png", dpi=150
+    )
     plt.close(fig)
 
     # 5. Excitation matrix heatmap
@@ -93,7 +96,9 @@ def main() -> None:
     branching_matrix_heatmap(branching, ax=ax)
     ax.set_title(f"Branching matrix, spectral radius={spectral_radius:.3f}")
     fig.tight_layout()
-    fig.savefig(FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_branching_heatmap.png", dpi=150)
+    fig.savefig(
+        FIGURE_DIR / "BTCUSDT_2024-01-02_0500_0530_branching_heatmap.png", dpi=150
+    )
     plt.close(fig)
 
     print(f"Saved figures to {FIGURE_DIR}")
