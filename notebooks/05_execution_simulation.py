@@ -15,6 +15,7 @@ from src.data import filter_intraday_window, load_processed
 from src.execution import (
     build_execution_table,
     hawkes_aware_schedule,
+    hawkes_momentum_schedule,
     imbalance_aware_schedule,
     implementation_shortfall,
     twap_schedule,
@@ -91,7 +92,14 @@ def _strategy_results(
         ),
     }
     if {"hawkes_lambda_buy", "hawkes_lambda_sell"}.issubset(execution_table.columns):
-        schedules["hawkes_aware"] = hawkes_aware_schedule(
+        schedules["hawkes_contrarian"] = hawkes_aware_schedule(
+            execution_table["hawkes_lambda_buy"],
+            execution_table["hawkes_lambda_sell"],
+            total_quantity,
+            side=side,
+            strength=strength,
+        )
+        schedules["hawkes_momentum"] = hawkes_momentum_schedule(
             execution_table["hawkes_lambda_buy"],
             execution_table["hawkes_lambda_sell"],
             total_quantity,

@@ -8,6 +8,7 @@ import pandas as pd
 from src.execution import (
     build_execution_table,
     hawkes_aware_schedule,
+    hawkes_momentum_schedule,
     imbalance_aware_schedule,
     implementation_shortfall,
     twap_schedule,
@@ -41,6 +42,8 @@ def test_schedules_sum_to_total_quantity_and_are_nonnegative():
         imbalance_aware_schedule(imbalance, total_quantity, side="sell"),
         hawkes_aware_schedule(lambda_buy, lambda_sell, total_quantity, side="buy"),
         hawkes_aware_schedule(lambda_buy, lambda_sell, total_quantity, side="sell"),
+        hawkes_momentum_schedule(lambda_buy, lambda_sell, total_quantity, side="buy"),
+        hawkes_momentum_schedule(lambda_buy, lambda_sell, total_quantity, side="sell"),
     ]
 
     for schedule in schedules:
@@ -138,8 +141,35 @@ def test_schedule_output_contains_child_quantities_and_sums():
         "twap_child_qty",
         "volume_participation_child_qty",
         "imbalance_aware_child_qty",
-        "hawkes_aware_child_qty",
+        "hawkes_contrarian_child_qty",
+        "hawkes_momentum_child_qty",
     ]
     for column in expected_columns:
         assert column in schedule_output
         assert np.isclose(schedule_output[column].sum(), total_quantity)
+
+
+def test_hawkes_momentum_buy_trades_more_on_positive_pressure():
+    total_quantity = 10.0
+    lambda_buy = np.array([9.0, 1.0])
+    lambda_sell = np.array([1.0, 9.0])
+
+    schedule = hawkes_momentum_schedule(
+        lambda_buy, lambda_sell, total_quantity, side="buy", strength=0.5
+    )
+
+    assert_valid_schedule(schedule, total_quantity)
+    assert schedule[0] > schedule[1]
+
+
+def test_hawkes_momentum_sell_trades_more_on_negative_pressure():
+    total_quantity = 10.0
+    lambda_buy = np.array([9.0, 1.0])
+    lambda_sell = np.array([1.0, 9.0])
+
+    schedule = hawkes_momentum_schedule(
+        lambda_buy, lambda_sell, total_quantity, side="sell", strength=0.5
+    )
+
+    assert_valid_schedule(schedule, total_quantity)
+    assert schedule[1] > schedule[0]

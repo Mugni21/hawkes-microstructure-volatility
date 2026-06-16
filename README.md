@@ -43,7 +43,7 @@ Because a single crypto symbol-day can contain hundreds of thousands or millions
 
 Forecasting uses chronological train/test splits. Baselines include lagged realized volatility and rolling trade intensity. The Hawkes model adds buy, sell, total, and imbalance intensity features. To avoid data snooping, the forecasting script estimates Hawkes parameters only on the training portion of the selected intraday window and applies train-estimated high-volatility thresholds to the test split.
 
-The execution simulator compares TWAP, volume participation, imbalance-aware, and Hawkes-aware schedules for buying or selling a fixed parent quantity. Hawkes intensities are used as reduced-form order-flow pressure signals: for a buy parent order, the simulator slows down when buy pressure is high and speeds up when sell pressure is high; sell orders use the symmetric logic.
+The execution simulator compares TWAP, volume participation, imbalance-aware, and two Hawkes-pressure schedules for buying or selling a fixed parent quantity. The Hawkes contrarian schedule treats intensity imbalance as adverse-selection pressure to fade. The Hawkes momentum schedule treats the same imbalance as short-term urgency to follow. The simulator evaluates which interpretation performs better in a given historical window; it does not assume either interpretation is universally correct.
 
 ## Repository Structure
 
@@ -144,4 +144,4 @@ pytest
 - High-frequency crypto data can be very large. Start with one- to three-hour windows, then scale carefully.
 - Forecasting metrics are placeholders until the pipeline is run on real data. Do not report performance numbers that were not generated out of sample.
 - The execution simulator is intentionally simplified. It does not model full limit-order-book depth, queue position, passive fill probability, market impact, latency, real transaction fees, rebates, or exchange constraints.
-- Hawkes-aware execution schedules use intensities as reduced-form order-flow pressure signals, not as proof of tradable alpha or profitability.
+- Hawkes execution schedules use intensities as reduced-form order-flow pressure signals under contrarian and momentum interpretations, not as proof of tradable alpha or profitability.

@@ -136,6 +136,34 @@ def hawkes_aware_schedule(
     return _normalize_schedule(weights, total_quantity)
 
 
+def hawkes_momentum_schedule(
+    lambda_buy: np.ndarray | pd.Series,
+    lambda_sell: np.ndarray | pd.Series,
+    total_quantity: float,
+    side: str = "buy",
+    strength: float = 0.5,
+) -> np.ndarray:
+    """Allocate by following Hawkes-implied short-term pressure."""
+    side = _validate_side(side)
+    if strength < 0:
+        raise ValueError("strength must be nonnegative")
+    buy = np.asarray(lambda_buy, dtype=float)
+    sell = np.asarray(lambda_sell, dtype=float)
+    total = buy + sell
+    pressure = np.divide(
+        buy - sell,
+        total,
+        out=np.zeros_like(total, dtype=float),
+        where=np.isfinite(total) & (total > 0),
+    )
+    pressure = np.clip(np.nan_to_num(pressure, nan=0.0), -1.0, 1.0)
+    if side == "buy":
+        weights = 1.0 + strength * pressure
+    else:
+        weights = 1.0 - strength * pressure
+    return _normalize_schedule(weights, total_quantity)
+
+
 def execution_cost(
     prices: np.ndarray | pd.Series, child_quantities: np.ndarray | pd.Series, side: str
 ) -> float:
