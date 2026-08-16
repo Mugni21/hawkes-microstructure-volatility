@@ -127,4 +127,4 @@ pytest
 * Hawkes intensities are used as reduced-form order-flow pressure signals, not as proof of tradable alpha.
 * Exact KS goodness-of-fit tests reject the simple Hawkes model on large high-frequency windows; the relevant comparison is whether Hawkes improves residual structure relative to Poisson baselines.
 * Reported execution results from individual windows should not be interpreted as robust strategy performance. A stronger claim would require aggregation across many days and windows.
-* The forecasting module remains exploratory unless explicitly run with out-of-sample results. Do not report forecasting performance without generated out-of-sample metrics.
+* The forecasting module remains exploratory unless explicitly run with out-of-sample results. 
