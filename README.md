@@ -47,6 +47,7 @@ The simulator compares:
 * `hawkes_contrarian`: treats Hawkes buy/sell intensity imbalance as pressure to fade.
 * `hawkes_momentum`: treats Hawkes buy/sell intensity imbalance as short-term urgency to follow.
 For a buy parent order, lower implementation shortfall is better. For a sell parent order, lower implementation shortfall is also better under the simulator's sign convention.
+
 In a BTCUSDT 05:00-05:10 UTC test window, Hawkes momentum improved implementation shortfall versus TWAP for both buy and sell simulations, while Hawkes contrarian underperformed TWAP. However, volume participation performed best for the buy order and raw imbalance-aware scheduling performed best for the sell order. These results should be interpreted as an ex-post historical allocation experiment rather than a causal backtest.
 The execution simulator saves both strategy-level results and interval-level schedules. The interval-level schedule file includes the price proxy, volume, imbalance, Hawkes intensities, and child quantity assigned by each strategy.
 ## Research TODO
