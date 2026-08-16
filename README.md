@@ -37,6 +37,7 @@ The Hawkes model is compared against:
 * Likelihood, AIC, and BIC comparisons.
 * Branching matrices and spectral-radius stability checks.
 A representative BTCUSDT 05:00-05:10 UTC window contains 9,069 aggregate trades, with 5,011 buy-initiated and 4,058 sell-initiated events. On this window, the fitted Hawkes process produced a stable spectral radius of 0.574, with diagonal-dominant same-side excitation: buy-to-buy branching ratio 0.573 and sell-to-sell branching ratio 0.458, much larger than cross-side excitation.
+
 On the same 9,069-event window, the Hawkes model improved AIC by roughly 19k relative to a homogeneous Poisson baseline and reduced lag-1 time-rescaled residual autocorrelation by approximately 56% for buy events and 68% for sell events. Exact KS tests still reject the simple exponential Hawkes specification, indicating remaining model misspecification. The large sample size makes the test sensitive to small departures from the exact model, and the nominal KS calibration does not account for parameters estimated from the same sample.
 ## Execution Simulation
 The execution module simulates buying or selling a fixed parent quantity over an intraday window. It does not simulate real exchange fills. Instead, it allocates child quantities across fixed time intervals and evaluates the resulting implementation shortfall using observed trade-price proxies.
@@ -49,11 +50,14 @@ The simulator compares:
 For a buy parent order, lower implementation shortfall is better. For a sell parent order, lower implementation shortfall is also better under the simulator's sign convention.
 
 In a BTCUSDT 05:00-05:10 UTC test window, Hawkes momentum improved implementation shortfall versus TWAP for both buy and sell simulations, while Hawkes contrarian underperformed TWAP. However, volume participation performed best for the buy order and raw imbalance-aware scheduling performed best for the sell order. These results should be interpreted as an ex-post historical allocation experiment rather than a causal backtest.
+
 The execution simulator saves both strategy-level results and interval-level schedules. The interval-level schedule file includes the price proxy, volume, imbalance, Hawkes intensities, and child quantity assigned by each strategy.
 ## Research TODO
 Make the adaptive execution schedules causal. The current schedules compute and normalize weights over the full realized execution window, so child quantities can depend on future interval information. Replace this with sequential allocation rules that use only information available at decision time, together with remaining inventory and remaining time.
+
 Separate Hawkes estimation from execution evaluation. Estimate Hawkes parameters on historical data available before the execution window, then compute buy and sell intensities during the execution window using only events observed up to the current time. Rolling re-estimation is a possible extension as long as only past information is used.
 Replace full-horizon normalization with an inventory-aware online policy. A causal execution rule should decide each child quantity from the current order-flow state, remaining parent quantity, and time remaining, while ensuring any residual inventory is completed by the end of the horizon.
+
 Add a reduced-form market-impact model so hypothetical child-order size can affect execution cost rather than treating the historical price path as fixed independently of the simulated strategy.
 Evaluate the execution policies across many out-of-sample days and intraday windows rather than drawing conclusions from a single historical window.
 ## Repository Structure
