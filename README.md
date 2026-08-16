@@ -36,6 +36,7 @@ The Hawkes model is compared against:
 * Residual autocorrelation checks.
 * Likelihood, AIC, and BIC comparisons.
 * Branching matrices and spectral-radius stability checks.
+
 A representative BTCUSDT 05:00-05:10 UTC window contains 9,069 aggregate trades, with 5,011 buy-initiated and 4,058 sell-initiated events. On this window, the fitted Hawkes process produced a stable spectral radius of 0.574, with diagonal-dominant same-side excitation: buy-to-buy branching ratio 0.573 and sell-to-sell branching ratio 0.458, much larger than cross-side excitation.
 
 On the same 9,069-event window, the Hawkes model improved AIC by roughly 19k relative to a homogeneous Poisson baseline and reduced lag-1 time-rescaled residual autocorrelation by approximately 56% for buy events and 68% for sell events. Exact KS tests still reject the simple exponential Hawkes specification, indicating remaining model misspecification. The large sample size makes the test sensitive to small departures from the exact model, and the nominal KS calibration does not account for parameters estimated from the same sample.
